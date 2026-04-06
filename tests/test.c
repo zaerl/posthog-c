@@ -1,0 +1,227 @@
+/**
+ * The Posthog C library
+ *
+ * This file is distributed under the MIT License. See LICENSE for details.
+ */
+
+#include <time.h>
+
+#ifdef _WIN32
+    #include <io.h>
+    #include <direct.h>
+    #include <windows.h>
+    #include "../src/shell/getopt/getopt.h"
+    #define isatty _isatty
+    #define STDOUT_FILENO _fileno(stdout)
+    #define chdir _chdir
+#else
+    #include <getopt.h>
+    #include <unistd.h>
+#endif
+
+#include "test.h"
+
+static att_test_callback error_callback = NULL;
+static bool exit_on_error = false;
+
+#ifdef _WIN32
+// Windows-compatible strsep implementation
+char *strsep(char **stringp, const char *delim) {
+    char *start = *stringp;
+    char *p;
+
+    if(start == NULL) {
+        return NULL;
+    }
+
+    p = strpbrk(start, delim);
+    if(p) {
+        *p = '\0';
+        *stringp = p + 1;
+    } else {
+        *stringp = NULL;
+    }
+
+    return start;
+}
+#endif
+
+int show_version(void) {
+    printf("PostHog C v%s\n", PHC_VERSION);
+
+    return 0;
+}
+
+bool is_exit_on_error(void) {
+    return exit_on_error;
+}
+
+void set_error_callback(att_test_callback callback) {
+    error_callback = callback;
+}
+
+int attractor_test_callback(int test, const char *description) {
+    if(!test) {
+        if(error_callback) {
+            error_callback(test, description);
+        }
+
+        exit(1);
+        return 1;
+    }
+
+    return 0;
+}
+
+void show_help(const char *executable, struct option options[], const char *descriptions[], const char *error) {
+    FILE *stream = error ? stderr : stdout;
+
+    fprintf(stream, "%s%sPostHog C - PostHog C test client [v%s]\n\nUsage: %s [OPTIONS]\n",
+        error ? error : "",
+        error ? "\n\n" : "",
+        PHC_VERSION,
+        executable);
+    fprintf(stream, "Options:\n");
+
+    for(unsigned long i = 0; i < 5; ++i) {
+        fprintf(stream, "  -%c%s, --%s%s\n\t%s\n",
+            options[i].val,
+            options[i].has_arg == no_argument ? "" : " ARG",
+            options[i].name,
+            options[i].has_arg == no_argument ? "" : "=ARG",
+            descriptions[i]);
+    }
+}
+
+int main(int argc, char * const argv[]) {
+#ifdef _WIN32
+    LARGE_INTEGER frequency, start, end;
+    QueryPerformanceFrequency(&frequency);
+#else
+    struct timespec start, end;
+#endif
+    double elapsed = 0;
+    unsigned int verbosity = 0;
+    int option = 0;
+    int option_index = 0;
+    char *filter = NULL;
+    bool is_ctest = getenv("CTEST_INTERACTIVE_DEBUG_MODE") != NULL ||
+        getenv("DASHBOARD_TEST_FROM_CTEST") != NULL;
+    bool show_colors = false;
+
+    if(isatty(STDOUT_FILENO)) {
+        const char *no_color = getenv("NO_COLOR");
+
+#ifdef _WIN32
+        // On Windows, TERM is usually not set, so enable colors by default if NO_COLOR is not set
+        show_colors = no_color == NULL;
+#else
+        // On Unix, check TERM environment variable
+        const char *term = getenv("TERM");
+        show_colors = no_color == NULL && term != NULL && strcmp(term, "dumb") != 0;
+#endif
+    }
+
+    struct option long_options[] = {
+        { "filter", required_argument, NULL, 'f' },
+        { "help", no_argument, NULL, 'h' },
+        { "verbose", no_argument, NULL, 'v' },
+        { "version", no_argument, NULL, 'V' },
+        { "exit-on-error", no_argument, NULL, 'e' },
+        { NULL, 0, NULL, 0 }
+    };
+    const char *descriptions[] = {
+        "Filter tests by name in the form name1,name2,...",
+        "Show this help message",
+        "Verbose output. -vv for more verbosity",
+        "Print version",
+        "Exit immediately on first test failure"
+    };
+
+    if(!is_ctest) {
+#ifdef _WIN32
+        QueryPerformanceCounter(&start);
+#else
+        clock_gettime(CLOCK_MONOTONIC, &start);
+#endif
+    }
+
+    att_set_verbose(verbosity);
+
+    while((option = getopt_long(argc, argv, "f:ehvV", long_options, &option_index)) != -1) {
+        switch(option) {
+            case 'f':
+                filter = strdup(optarg);
+                break;
+            case 'e':
+                exit_on_error = true;
+                break;
+            case 'h':
+                show_help(argv[0], long_options, descriptions, NULL);
+                return 0;
+            case 'v':
+                ++verbosity;
+                break;
+            case 'V':
+                return show_version();
+            case '?':
+                // getopt_long already printed an error message
+                break;
+            default:
+                abort();
+        }
+    }
+
+    att_set_verbose(verbosity);
+
+    if(exit_on_error) {
+        att_set_test_callback(attractor_test_callback);
+    }
+
+    if(is_ctest) {
+        // ctest CWD is ./build/tests, so we need to move to the root directory
+        chdir("../../");
+    }
+
+    unsigned int step = 0;
+
+    #define RUN_TEST(NAME) \
+        if(!filter || strstr(#NAME, filter)) { \
+            if(!is_ctest) { \
+                printf("%sTest: %s%s%s\n", verbosity && step ? "\n" : "", \
+                    show_colors ? "\x1b[1;32m" : "", #NAME, show_colors ? "\x1b[0m" : ""); \
+            } \
+            test_##NAME(NULL); \
+            ++step; \
+        }
+
+    // Start tests declarations.
+    RUN_TEST(init)
+
+    unsigned int tests_valid = att_get_valid_tests();
+    unsigned int tests_total = att_get_total_tests();
+    bool valid = tests_valid == tests_total;
+
+    // Green if valid and red if not
+    const char *color_code = show_colors ? (valid ? "\x1B[32m" : "\x1B[31m") : "";
+
+    printf("%sTests valid/run: %s%d/%d%s\n", verbosity >= 1 ? "\n" : "", color_code,
+        tests_valid, tests_total, show_colors ? "\x1B[0m" : "");
+
+    if(!is_ctest) {
+#ifdef _WIN32
+        QueryPerformanceCounter(&end);
+        elapsed = (double)(end.QuadPart - start.QuadPart) / frequency.QuadPart;
+#else
+        clock_gettime(CLOCK_MONOTONIC, &end);
+        elapsed = (end.tv_sec - start.tv_sec) + (end.tv_nsec - start.tv_nsec) / 1e9;
+#endif
+        printf("Execution time: %.4f seconds\n", elapsed);
+    }
+
+    if(filter) {
+        free(filter);
+    }
+
+    return valid ? 0 : -1;
+}
