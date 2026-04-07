@@ -860,6 +860,10 @@ static const phc_endpoint PHC_ENDPOINTS[] = {
 
 // Initialize the client.
 PHC_EXPORT phc_status phc_send_request(phc_endpoint_name name, phc_net_method method, const char *payload, phc_client *client, ...) {
+    if((PHC_ENDPOINTS[name].methods & method) == 0) {
+        return PHC_ERROR_INVALID_METHOD;
+    }
+
     curl_easy_reset(client->curl);
 
     struct curl_slist *headers = NULL;

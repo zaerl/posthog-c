@@ -54,7 +54,8 @@ typedef enum {
     PHC_OK = 0,
     PHC_ERROR = -1,
     PHC_ERROR_NO_API_KEY = -2,
-    PHC_ERROR_CURL = -3
+    PHC_ERROR_CURL = -3,
+    PHC_ERROR_INVALID_METHOD = -4,
 } phc_status;
 
 typedef enum {
