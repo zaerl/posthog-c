@@ -54,15 +54,15 @@ typedef enum {
     PHC_OK = 0,
     PHC_ERROR = -1,
     PHC_ERROR_NO_API_KEY = -2,
-    PHC_ERROR_CURL = -3,
+    PHC_ERROR_CURL = -3
 } phc_status;
 
 typedef enum {
-    PHC_NET_GET = 0x0,
-    PHC_NET_POST = 0x1,
-    PHC_NET_PUT = 0x2,
-    PHC_NET_PATCH = 0x4,
-    PHC_NET_DELETE = 0x8,
+    PHC_NET_GET = 0x1,
+    PHC_NET_POST = 0x2,
+    PHC_NET_PUT = 0x4,
+    PHC_NET_PATCH = 0x8,
+    PHC_NET_DELETE = 0x10,
 } phc_net_method;
 
 typedef enum {
