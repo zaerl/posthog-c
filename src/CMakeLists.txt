@@ -1,4 +1,5 @@
 set(SOURCES
+    http-client.c
     init.c
 )
 

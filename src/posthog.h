@@ -65,7 +65,7 @@ typedef enum {
     PHC_NET_DELETE = 0x8,
 } phc_net_method;
 
-enum {
+typedef enum {
     // List of endpoints, automatically generated. Do not modify.
     PHC_API_CODE_INVITES_CHECK_ACCESS,
     PHC_API_CODE_INVITES_REDEEM,
@@ -906,7 +906,7 @@ enum {
     PHC_API_USERS_REQUEST_EMAIL_VERIFICATION,
     PHC_API_USERS_VERIFY_EMAIL
     // End of endpoints list.
-};
+} phc_endpoint_name;
 
 typedef struct phc_client {
     char *api_key;
@@ -918,7 +918,7 @@ typedef struct phc_client {
 PHC_NONNULL(3) phc_status phc_init(const char *api_key, const char *host, phc_client *client);
 // Clean up the client.
 PHC_NONNULL(1) void phc_cleanup(phc_client *client);
-PHC_NONNULL(1, 2, 3) phc_status phc_send_request(const char *path, const char *payload, phc_client *client);
+PHC_NONNULL(4) phc_status phc_send_request(phc_endpoint_name name, phc_net_method method, const char *payload, phc_client *client, ...);
 
 #ifdef __cplusplus
 }

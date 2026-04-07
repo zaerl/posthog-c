@@ -858,59 +858,69 @@ static const phc_endpoint PHC_ENDPOINTS[] = {
     // End of endpoints list.
 };
 
-static CURLU *phc_url(const char *path, phc_client *client) {
-    CURLUcode rc;
-    CURLU *url = curl_url();
-
-    rc = curl_url_set(url, CURLUPART_URL, client->host, 0);
-
-    if(rc == CURLUE_OK) {
-        rc = curl_url_set(url, CURLUPART_PATH, path, 0);
-
-        if(rc == CURLUE_OK) {
-            return url;
-        }
-    }
-
-    curl_url_cleanup(url);
-
-    return NULL;
-}
-
 // Initialize the client.
-PHC_EXPORT phc_status phc_send_request(const char *path, const char *payload, phc_client *client) {
-    CURLU *url = phc_url(path, client);
-
-    if(!url) {
-        return PHC_ERROR;
-    }
+PHC_EXPORT phc_status phc_send_request(phc_endpoint_name name, phc_net_method method, const char *payload, phc_client *client, ...) {
+    curl_easy_reset(client->curl);
 
     struct curl_slist *headers = NULL;
     headers = curl_slist_append(headers, "Content-Type: application/json");
 
     if(!headers) {
-        curl_url_cleanup(url);
-
         return PHC_ERROR;
     }
 
     headers = curl_slist_append(headers, client->api_key);
 
     if(!headers) {
+        curl_slist_free_all(headers);
+
+        return PHC_ERROR;
+    }
+
+    CURLU *url = curl_url();
+    CURLUcode rc = curl_url_set(url, CURLUPART_URL, client->host, 0);
+
+    if(rc != CURLUE_OK) {
+        curl_slist_free_all(headers);
         curl_url_cleanup(url);
 
         return PHC_ERROR;
     }
 
-    curl_easy_setopt(client->curl, CURLOPT_URL, url);
-    curl_easy_setopt(client->curl, CURLOPT_POST, 1);
-    curl_easy_setopt(client->curl, CURLOPT_POSTFIELDS, payload);
+    va_list args;
+    va_start(args, client);
+    char formatted_path[2056];
+
+    switch(method) {
+        case PHC_NET_GET:
+            break;
+        case PHC_NET_POST:
+            curl_easy_setopt(client->curl, CURLOPT_POST, 1);
+            break;
+        case PHC_NET_PUT:
+            curl_easy_setopt(client->curl, CURLOPT_CUSTOMREQUEST, "PUT");
+            break;
+        case PHC_NET_PATCH:
+            curl_easy_setopt(client->curl, CURLOPT_CUSTOMREQUEST, "PATCH");
+            break;
+        case PHC_NET_DELETE:
+            curl_easy_setopt(client->curl, CURLOPT_CUSTOMREQUEST, "DELETE");
+            break;
+    }
+
+    vsnprintf(formatted_path, 2056, PHC_ENDPOINTS[name].path, args);
+    curl_easy_setopt(client->curl, CURLOPT_URL, formatted_path);
     curl_easy_setopt(client->curl, CURLOPT_HTTPHEADER, headers);
+
+    if(method != PHC_NET_GET && payload) {
+        curl_easy_setopt(client->curl, CURLOPT_POSTFIELDS, payload);
+    }
 
     CURLcode res = curl_easy_perform(client->curl);
 
     curl_slist_free_all(headers);
     curl_url_cleanup(url);
+    va_end(args);
 
     if(res != CURLE_OK) {
         return PHC_ERROR_CURL;
