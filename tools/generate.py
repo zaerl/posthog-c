@@ -54,23 +54,24 @@ endpoints: list[dict] = []
 enums: list[str] = []
 
 for path in paths:
+    print(path)
     current_path = path
     methods = 0
     required_fields = 0
-    print(path)
     enum_name = '    PHC_' + path.strip("/").replace("/", "_").replace("-", "_").replace(".", "_")
     # /api/projects/{project_id}/... -> /api/projects/{id}/...
     enum_name = re.sub(r'\{[a-zA-Z0-9_]+_id', '{id', enum_name)
     enum_name = enum_name.replace("{", "").replace("}", "").upper()
     enums.append(enum_name.upper())
 
-    for method in paths[path]:
+    for i, method in enumerate(paths[path]):
         methods |= METHOD_BITS.get(method.lower(), 0)
-        params = paths[path][method].get('parameters', [])
-        for param in params:
-            if param.get('in') == 'path' and param.get('required', False):
-                required_fields += 1
-                current_path = current_path.replace(f"{{{param['name']}}}", "%s")
+        if i == 0:
+            params = paths[path][method].get('parameters', [])
+            for param in params:
+                if param.get('in') == 'path' and param.get('required'):
+                    required_fields += 1
+                    current_path = current_path.replace(f"{{{param['name']}}}", "%s")
     endpoints.append(f"    {{\"{current_path}\", {methods}, {required_fields}}}")
 
 generated_endpoints = ",\n".join(endpoints)
