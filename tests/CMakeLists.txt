@@ -1,5 +1,6 @@
 set(TEST_SOURCES
     attractor/attractor.c
+    http-client.c
     init.c
     test.c
 )

@@ -21,6 +21,7 @@ extern "C" {
 #endif
 
 // Start tests declarations.
+void *test_http_client(void *arg);
 void *test_init(void *arg);
 
 void set_error_callback(att_test_callback callback);

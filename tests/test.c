@@ -196,6 +196,7 @@ int main(int argc, char * const argv[]) {
         }
 
     // Start tests declarations.
+    RUN_TEST(http_client)
     RUN_TEST(init)
 
     unsigned int tests_valid = att_get_valid_tests();
