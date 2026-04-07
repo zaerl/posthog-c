@@ -57,6 +57,19 @@ typedef enum {
     PHC_ERROR_CURL = -3,
 } phc_status;
 
+typedef enum {
+    PHC_NET_GET = 0x0,
+    PHC_NET_POST = 0x1,
+    PHC_NET_PUT = 0x2,
+    PHC_NET_PATCH = 0x4,
+    PHC_NET_DELETE = 0x8,
+} phc_net_method;
+
+enum {
+    // Start of endpoints list, automatically generated. Do not modify.
+    // End of endpoints list.
+};
+
 typedef struct phc_client {
     char *api_key;
     char *host;
