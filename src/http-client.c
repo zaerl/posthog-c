@@ -4,6 +4,8 @@
  * This file is distributed under the MIT License. See LICENSE for details.
  */
 
+#include <stdarg.h>
+#include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 
@@ -858,12 +860,27 @@ static const phc_endpoint PHC_ENDPOINTS[] = {
     // End of endpoints list.
 };
 
-// Initialize the client.
-PHC_EXPORT phc_status phc_send_request(phc_endpoint_name name, phc_net_method method, const char *payload, phc_client *client, ...) {
-    if((PHC_ENDPOINTS[name].methods & method) == 0) {
-        return PHC_ERROR_INVALID_METHOD;
+PHC_EXPORT phc_status phc_endpoint_accept(phc_endpoint_name name, phc_net_method method) {
+    return (PHC_ENDPOINTS[name].methods & method) ? PHC_OK : PHC_ERROR_INVALID_METHOD;
+}
+
+// Format the URL for an endpoint.
+PHC_EXPORT phc_status phc_format_url(phc_endpoint_name name, phc_client *client, char *url, size_t url_size, ...) {
+    int offset = snprintf(url, url_size, "%s", client->host);
+
+    if(offset < 0 || (size_t)offset >= url_size) {
+        return PHC_ERROR;
     }
 
+    va_list args;
+    va_start(args, url_size);
+    vsnprintf(url + offset, url_size - offset, PHC_ENDPOINTS[name].path, args);
+    va_end(args);
+
+    return PHC_OK;
+}
+
+PHC_EXPORT phc_status phc_send_request(const char *url, phc_net_method method, const char *payload, phc_client *client) {
     curl_easy_reset(client->curl);
 
     struct curl_slist *headers = NULL;
@@ -880,20 +897,6 @@ PHC_EXPORT phc_status phc_send_request(phc_endpoint_name name, phc_net_method me
 
         return PHC_ERROR;
     }
-
-    CURLU *url = curl_url();
-    CURLUcode rc = curl_url_set(url, CURLUPART_URL, client->host, 0);
-
-    if(rc != CURLUE_OK) {
-        curl_slist_free_all(headers);
-        curl_url_cleanup(url);
-
-        return PHC_ERROR;
-    }
-
-    va_list args;
-    va_start(args, client);
-    char formatted_path[2056];
 
     switch(method) {
         case PHC_NET_GET:
@@ -912,8 +915,7 @@ PHC_EXPORT phc_status phc_send_request(phc_endpoint_name name, phc_net_method me
             break;
     }
 
-    vsnprintf(formatted_path, 2056, PHC_ENDPOINTS[name].path, args);
-    curl_easy_setopt(client->curl, CURLOPT_URL, formatted_path);
+    curl_easy_setopt(client->curl, CURLOPT_URL, url);
     curl_easy_setopt(client->curl, CURLOPT_HTTPHEADER, headers);
 
     if(method != PHC_NET_GET && payload) {
@@ -923,8 +925,6 @@ PHC_EXPORT phc_status phc_send_request(phc_endpoint_name name, phc_net_method me
     CURLcode res = curl_easy_perform(client->curl);
 
     curl_slist_free_all(headers);
-    curl_url_cleanup(url);
-    va_end(args);
 
     if(res != CURLE_OK) {
         return PHC_ERROR_CURL;

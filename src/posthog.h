@@ -917,8 +917,16 @@ typedef struct phc_client {
 
 // Initialize the client.
 PHC_NONNULL(3) phc_status phc_init(const char *api_key, const char *host, phc_client *client);
+
+// Format the URL for an endpoint.
+PHC_NONNULL(2, 3) phc_status phc_format_url(phc_endpoint_name name, phc_client *client, char *url, size_t url_size, ...);
+
+// Check if an endpoint accepts a specific method.
+phc_status phc_endpoint_accept(phc_endpoint_name name, phc_net_method method);
+
 // Send a request.
-PHC_NONNULL(4) phc_status phc_send_request(phc_endpoint_name name, phc_net_method method, const char *payload, phc_client *client, ...);
+PHC_NONNULL(1, 4) phc_status phc_send_request(const char *url, phc_net_method method, const char *payload, phc_client *client);
+
 // Clean up the client.
 PHC_NONNULL(1) void phc_cleanup(phc_client *client);
 
