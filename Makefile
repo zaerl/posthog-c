@@ -15,11 +15,19 @@ clean_build:
 	@cmake --build $(BUILD_DIR) --target clean
 
 clean:
-	rm -rf $(BUILD_DIR)
+	rm -rf $(BUILD_DIR) .venv
+
+generate: .venv/.installed
+	@cd ./tools && ./generate.sh
+
+.venv/.installed: requirements.txt
+	@python3 -m venv .venv
+	@.venv/bin/pip install -q -r requirements.txt
+	@touch .venv/.installed
 
 # Run tests
 test: BUILD_TYPE = Test
 test: configure build
 	build/tests/posthog-test $(ARGS)
 
-.PHONY: all configure build rebuild clean_build clean test
+.PHONY: all configure build rebuild clean_build clean generate test
