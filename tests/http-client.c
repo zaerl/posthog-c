@@ -30,6 +30,20 @@ void *test_http_client(void *arg) {
     ATT_ASSERT(phc_endpoint_accept(PHC_API_USERS, PHC_NET_POST), PHC_ERROR_INVALID_METHOD, "POST users list");
     ATT_ASSERT(phc_endpoint_accept(PHC_API_USERS, PHC_NET_GET), PHC_OK, "GET users list");
 
+    const char *api_key = getenv("ATT_API_KEY");
+
+    if(!api_key) {
+        printf("Skipping request test since ATT_API_KEY is not set\n");
+
+        return NULL;
+    }
+
+    phc_cleanup(&client);
+    ATT_ASSERT(phc_init(api_key, PHC_HOST_EU, &client), PHC_OK, "Initialize client");
+
+    ATT_ASSERT(phc_format_url(PHC_API_USERS, &client, url, sizeof(url)), PHC_OK, "Format URL");
+    ATT_ASSERT(phc_send_request(url, PHC_NET_GET, NULL, &client), PHC_OK, "GET users list");
+
     phc_cleanup(&client);
 
     return NULL;

@@ -48,8 +48,8 @@ PHC_EXPORT phc_status phc_init(const char *api_key, const char *host, phc_client
         }
     }
 
-    client->api_key = malloc(8 + strlen(api_key));
-    sprintf(client->api_key, "Bearer %s", api_key);
+    client->api_key = malloc(23 + strlen(api_key));
+    sprintf(client->api_key, "Authorization: Bearer %s", api_key);
 
     client->host = strdup(host);
 
